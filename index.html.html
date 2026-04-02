@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PromoMutum — Painel do Lojista</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f8f6f2;
+    --bg-card: #ffffff;
+    --bg-input: #f2efe9;
+    --border: #e8e4dc;
+    --border-focus: #2d9b6e;
+    --accent: #2d9b6e;
+    --accent-hover: #248a5e;
+    --accent-light: #e8f5ee;
+    --accent-glow: rgba(45,155,110,0.12);
+    --red: #d94545;
+    --red-light: #fdf0f0;
+    --orange: #e8841a;
+    --orange-light: #fef3e6;
+    --text: #1a1a1a;
+    --text-secondary: #6b6560;
+    --text-muted: #9e9890;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.08);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .auth-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: linear-gradient(145deg, #e8f5ee 0%, var(--bg) 40%, #fef3e6 100%);
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 40px 36px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    animation: fadeUp 0.5s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .auth-logo { font-size: 28px; font-weight: 800; color: var(--accent); text-align: center; margin-bottom: 4px; letter-spacing: -0.5px; }
+  .auth-subtitle { text-align: center; color: var(--text-secondary); font-size: 14px; margin-bottom: 32px; }
+  .auth-tabs { display: flex; margin-bottom: 28px; background: var(--bg-input); border-radius: var(--radius-sm); padding: 4px; }
+  .auth-tab {
+    flex: 1; padding: 10px; text-align: center; font-size: 14px; font-weight: 600;
+    border: none; background: none; border-radius: 6px; cursor: pointer;
+    color: var(--text-secondary); transition: all 0.2s;
+  }
+  .auth-tab.active { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-sm); }
+  .form-group { margin-bottom: 18px; }
+  .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+  .form-input {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 15px;
+    background: var(--bg-input); color: var(--text); transition: all 0.2s; outline: none;
+  }
+  .form-input:focus { border-color: var(--border-focus); background: var(--bg-card); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .form-input::placeholder { color: var(--text-muted); }
+  .form-select {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 15px;
+    background: var(--bg-input); color: var(--text); outline: none; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6560' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+  }
+  .form-select:focus { border-color: var(--border-focus); background-color: var(--bg-card); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .btn {
+    width: 100%; padding: 13px; border: none; border-radius: var(--radius-sm);
+    font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-small { width: auto; padding: 8px 16px; font-size: 13px; }
+  .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; display: none; line-height: 1.5; }
+  .alert-error { background: var(--red-light); color: var(--red); border: 1px solid #f5c6c6; }
+  .alert-success { background: var(--accent-light); color: var(--accent); border: 1px solid #b8e0cc; }
+  .dashboard { display: none; min-height: 100vh; }
+  .topbar {
+    background: var(--bg-card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 64px; display: flex; align-items: center;
+    justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-sm);
+  }
+  .topbar-logo { font-size: 20px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+  .topbar-loja { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+  .topbar-btn {
+    padding: 8px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    background: none; font-family: inherit; font-size: 13px; font-weight: 600;
+    color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+  }
+  .topbar-btn:hover { border-color: var(--red); color: var(--red); }
+  .main-content { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+  .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); }
+  .stat-number { font-size: 32px; font-weight: 800; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+  .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .section-title { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
+  .promo-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .promo-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; display: flex; align-items: center; gap: 16px;
+    box-shadow: var(--shadow-sm); transition: all 0.2s;
+  }
+  .promo-card:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
+  .promo-emoji {
+    width: 48px; height: 48px; border-radius: var(--radius-sm);
+    background: var(--accent-light); display: flex; align-items: center;
+    justify-content: center; font-size: 22px; flex-shrink: 0;
+  }
+  .promo-info { flex: 1; min-width: 0; }
+  .promo-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .promo-category { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .promo-prices { text-align: right; flex-shrink: 0; }
+  .promo-price-old { font-size: 12px; color: var(--text-muted); text-decoration: line-through; }
+  .promo-price-new { font-size: 18px; font-weight: 800; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+  .promo-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .promo-btn {
+    width: 36px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--bg-card); cursor: pointer; display: flex; align-items: center;
+    justify-content: center; font-size: 16px; transition: all 0.2s;
+  }
+  .promo-btn:hover { border-color: var(--red); background: var(--red-light); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+  .empty-emoji { font-size: 48px; margin-bottom: 12px; }
+  .empty-title { font-size: 16px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px; }
+  .empty-desc { font-size: 14px; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+    z-index: 200; display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--bg-card); border-radius: 20px; width: 100%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); animation: fadeUp 0.3s ease;
+  }
+  .modal-header { padding: 24px 28px 0; display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 18px; font-weight: 800; color: var(--text); }
+  .modal-close {
+    width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--bg-input);
+    cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .modal-close:hover { background: var(--border); }
+  .modal-body { padding: 24px 28px 28px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .setup-card {
+    background: var(--orange-light); border: 1.5px solid #f0c89a;
+    border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px;
+  }
+  .setup-title { font-size: 15px; font-weight: 700; color: var(--orange); margin-bottom: 4px; }
+  .setup-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5; }
+  .loading-spinner {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+    border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+  .badge-origin { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-painel { background: var(--accent-light); color: var(--accent); }
+  .badge-whatsapp { background: #dcfce7; color: #16a34a; }
+  .badge-instagram { background: #fce7f3; color: #db2777; }
+  .promo-date { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  @media (max-width: 640px) {
+    .stats-row { grid-template-columns: 1fr; }
+    .auth-card { padding: 28px 20px; }
+    .promo-card { flex-wrap: wrap; }
+    .promo-actions { width: 100%; justify-content: flex-end; }
+    .form-row { grid-template-columns: 1fr; }
+    .topbar-loja { display: none; }
+    .main-content { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="authScreen" class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-logo">🏷️ PromoMutum</div>
+    <div class="auth-subtitle">Painel do Lojista — Nova Mutum</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin">Entrar</button>
+      <button class="auth-tab" id="tabRegister">Criar Conta</button>
+    </div>
+    <div id="alertAuth" class="alert"></div>
+    <div id="loginForm">
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" id="loginEmail" class="form-input" placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" id="loginPassword" class="form-input" placeholder="Sua senha">
+      </div>
+      <button class="btn btn-primary" id="btnLogin">Entrar</button>
+    </div>
+    <div id="registerForm" class="hidden">
+      <div class="form-group">
+        <label class="form-label">Nome da Loja</label>
+        <input type="text" id="regNome" class="form-input" placeholder="Ex: Mercado Araras">
+      </div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" id="regEmail" class="form-input" placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="form-group">
+        <label class="form-label">WhatsApp da Loja</label>
+        <input type="text" id="regWhatsapp" class="form-input" placeholder="(65) 99999-9999">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de Comércio</label>
+        <select id="regCategoria" class="form-select"><option value="">Selecione...</option></select>
+      </div>
+      <button class="btn btn-primary" id="btnRegister">Criar Conta</button>
+    </div>
+  </div>
+</div>
+
+<div id="dashboardScreen" class="dashboard">
+  <div class="topbar">
+    <div class="topbar-logo">🏷️ PromoMutum</div>
+    <div class="topbar-right">
+      <span class="topbar-loja" id="topbarLoja"></span>
+      <button class="topbar-btn" id="btnLogout">Sair</button>
+    </div>
+  </div>
+  <div class="main-content">
+    <div id="setupBanner" class="setup-card hidden">
+      <div class="setup-title">⚙️ Complete o cadastro da sua loja</div>
+      <div class="setup-desc">Adicione endereço, bairro e Instagram para seus clientes te encontrarem mais fácil.</div>
+      <button class="btn btn-primary btn-small" id="btnSetup">Completar Cadastro</button>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-number" id="statAtivas">0</div><div class="stat-label">Promoções ativas</div></div>
+      <div class="stat-card"><div class="stat-number" id="statHoje">0</div><div class="stat-label">Adicionadas hoje</div></div>
+      <div class="stat-card"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Total do mês</div></div>
+    </div>
+    <div class="section-header">
+      <h2 class="section-title">Suas Promoções</h2>
+      <button class="btn btn-primary btn-small" id="btnAddPromo">+ Nova Promoção</button>
+    </div>
+    <div id="promoList" class="promo-list">
+      <div class="empty-state"><div class="empty-emoji">🏷️</div><div class="empty-title">Nenhuma promoção ainda</div><div class="empty-desc">Clique em "+ Nova Promoção" para começar</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="modalPromo" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modalPromoTitle">Nova Promoção</h3>
+      <button class="modal-close" id="closePromo">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="alertPromo" class="alert"></div>
+      <div class="form-group"><label class="form-label">Nome do Produto</label><input type="text" id="promoNome" class="form-input" placeholder="Ex: Tomate Italiano"></div>
+      <div class="form-group"><label class="form-label">Categoria</label><select id="promoCategoria" class="form-select"><option value="">Selecione...</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Preço Original (R$)</label><input type="number" id="promoPrecoOriginal" class="form-input" placeholder="7.00" step="0.01"><div class="form-hint">Opcional</div></div>
+        <div class="form-group"><label class="form-label">Preço Promo (R$)</label><input type="number" id="promoPrecoPromo" class="form-input" placeholder="5.00" step="0.01"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Unidade</label><select id="promoUnidade" class="form-select"><option value="un">Unidade (un)</option><option value="kg">Quilo (kg)</option><option value="g">Grama (g)</option><option value="L">Litro (L)</option><option value="ml">Mililitro (ml)</option><option value="cx">Caixa (cx)</option><option value="pct">Pacote (pct)</option><option value="dz">Dúzia (dz)</option><option value="m">Metro (m)</option></select></div>
+        <div class="form-group"><label class="form-label">Válido até</label><input type="date" id="promoDataFim" class="form-input"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Descrição (opcional)</label><input type="text" id="promoDescricao" class="form-input" placeholder="Ex: Enquanto durar o estoque"></div>
+      <input type="hidden" id="promoEditId" value="">
+      <button class="btn btn-primary" id="btnSavePromo">Publicar Promoção</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalLoja" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Dados da Loja</h3>
+      <button class="modal-close" id="closeLoja">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="alertLoja" class="alert"></div>
+      <div class="form-group"><label class="form-label">Nome da Loja</label><input type="text" id="lojaNome" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Endereço</label><input type="text" id="lojaEndereco" class="form-input" placeholder="Rua, número"></div>
+      <div class="form-group"><label class="form-label">Bairro</label><input type="text" id="lojaBairro" class="form-input" placeholder="Centro, Jardim das Oliveiras..."></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">WhatsApp</label><input type="text" id="lojaWhatsapp" class="form-input" placeholder="(65) 99999-9999"></div>
+        <div class="form-group"><label class="form-label">Telefone</label><input type="text" id="lojaTelefone" class="form-input" placeholder="(65) 3308-0000"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Instagram</label><input type="text" id="lojaInstagram" class="form-input" placeholder="@sualojaoficial"></div>
+      <button class="btn btn-primary" id="btnSaveLoja">Salvar Dados</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var sb = window.supabase.createClient(
+    'https://aqbzqpnkhmssgsesobou.supabase.co',
+    'sb_publishable_wwwNgXP4SCHZhTAtJrhfSA_krr1pAIw'
+  );
+
+  var currentUser = null;
+  var currentLoja = null;
+  var promocoes = [];
+
+  function $(id) { return document.getElementById(id); }
+  function showAlert(id, msg, type) { var e=$(id); e.textContent=msg; e.className='alert alert-'+type; e.style.display='block'; }
+  function hideAlert(id) { $(id).style.display='none'; }
+  function openModal(id) { $(id).classList.add('active'); }
+  function closeModalFn(id) { $(id).classList.remove('active'); }
+  function formatDate(d) { if(!d)return''; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+  function esc(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  // TABS
+  $('tabLogin').addEventListener('click', function() {
+    $('tabLogin').classList.add('active'); $('tabRegister').classList.remove('active');
+    $('loginForm').classList.remove('hidden'); $('registerForm').classList.add('hidden');
+    hideAlert('alertAuth');
+  });
+  $('tabRegister').addEventListener('click', function() {
+    $('tabRegister').classList.add('active'); $('tabLogin').classList.remove('active');
+    $('registerForm').classList.remove('hidden'); $('loginForm').classList.add('hidden');
+    hideAlert('alertAuth');
+  });
+
+  // LOGIN
+  $('btnLogin').addEventListener('click', async function() {
+    var email=$('loginEmail').value.trim(), pw=$('loginPassword').value;
+    if(!email||!pw){ showAlert('alertAuth','Preencha e-mail e senha.','error'); return; }
+    this.disabled=true; this.innerHTML='<span class="loading-spinner"></span> Entrando...';
+    var r = await sb.auth.signInWithPassword({email:email,password:pw});
+    this.disabled=false; this.textContent='Entrar';
+    if(r.error) showAlert('alertAuth','E-mail ou senha incorretos.','error');
+  });
+
+  $('loginPassword').addEventListener('keydown', function(e) {
+    if(e.key==='Enter') $('btnLogin').click();
+  });
+
+  // REGISTER
+  $('btnRegister').addEventListener('click', async function() {
+    var nome=$('regNome').value.trim(), email=$('regEmail').value.trim(),
+        pw=$('regPassword').value, wpp=$('regWhatsapp').value.trim(),
+        cat=$('regCategoria').value;
+    if(!nome||!email||!pw){ showAlert('alertAuth','Preencha nome, e-mail e senha.','error'); return; }
+    if(pw.length<6){ showAlert('alertAuth','Senha precisa ter 6+ caracteres.','error'); return; }
+
+    this.disabled=true; this.innerHTML='<span class="loading-spinner"></span> Criando conta...';
+    var ar = await sb.auth.signUp({email:email,password:pw});
+    if(ar.error){ this.disabled=false; this.textContent='Criar Conta'; showAlert('alertAuth','Erro: '+ar.error.message,'error'); return; }
+
+    var lr = await sb.from('lojas').insert({
+      nome:nome, email:email, whatsapp:wpp, categoria_loja_id:cat||null,
+      user_id:ar.data.user.id, plano_ativo:true,
+      data_inicio_plano:new Date().toISOString().split('T')[0],
+      data_vencimento_plano:new Date(Date.now()+30*86400000).toISOString().split('T')[0]
+    });
+    this.disabled=false; this.textContent='Criar Conta';
+    if(lr.error){ showAlert('alertAuth','Conta criada, erro na loja: '+lr.error.message,'error'); return; }
+    showAlert('alertAuth','Conta criada com sucesso! Entrando...','success');
+  });
+
+  // LOGOUT
+  $('btnLogout').addEventListener('click', function() { sb.auth.signOut(); });
+
+  // DASHBOARD
+  async function loadDashboard() {
+    var r = await sb.from('lojas').select('*, categorias_loja(nome, icone)').eq('user_id', currentUser.id);
+    if(!r.data||!r.data.length){ showAlert('alertAuth','Loja não encontrada.','error'); return; }
+    currentLoja = r.data[0];
+    $('authScreen').style.display='none';
+    $('dashboardScreen').style.display='block';
+    $('topbarLoja').textContent=currentLoja.nome;
+    if(!currentLoja.endereco||!currentLoja.bairro) $('setupBanner').classList.remove('hidden');
+    else $('setupBanner').classList.add('hidden');
+    await loadPromocoes();
+  }
+
+  async function loadPromocoes() {
+    var r = await sb.from('promocoes').select('*, categorias_produto(nome, icone)')
+      .eq('loja_id', currentLoja.id).eq('ativo', true).order('created_at', {ascending:false});
+    promocoes = r.data || [];
+    renderPromocoes();
+    var today = new Date().toISOString().split('T')[0];
+    $('statAtivas').textContent = promocoes.length;
+    $('statHoje').textContent = promocoes.filter(function(p){return p.created_at&&p.created_at.startsWith(today);}).length;
+    $('statTotal').textContent = promocoes.length;
+  }
+
+  function renderPromocoes() {
+    var c = $('promoList');
+    if(!promocoes.length){
+      c.innerHTML='<div class="empty-state"><div class="empty-emoji">🏷️</div><div class="empty-title">Nenhuma promoção ainda</div><div class="empty-desc">Clique em "+ Nova Promoção" para começar</div></div>';
+      return;
+    }
+    c.innerHTML = promocoes.map(function(p){
+      var emoji = (p.categorias_produto&&p.categorias_produto.icone)||'📦';
+      var cat = (p.categorias_produto&&p.categorias_produto.nome)||'';
+      var old = p.preco_original?'<div class="promo-price-old">R$ '+Number(p.preco_original).toFixed(2)+'</div>':'';
+      var dt = p.data_fim?'Até '+formatDate(p.data_fim):'';
+      return '<div class="promo-card">'+
+        '<div class="promo-emoji">'+emoji+'</div>'+
+        '<div class="promo-info"><div class="promo-name">'+esc(p.produto_nome)+'</div>'+
+        '<div class="promo-category">'+cat+' <span class="badge-origin badge-'+p.origem+'">'+p.origem+'</span></div>'+
+        '<div class="promo-date">'+dt+'</div></div>'+
+        '<div class="promo-prices">'+old+'<div class="promo-price-new">R$ '+Number(p.preco_promocional).toFixed(2)+'</div>'+
+        '<div class="promo-category">/'+( p.unidade||'un')+'</div></div>'+
+        '<div class="promo-actions">'+
+        '<button class="promo-btn" data-edit="'+p.id+'">✏️</button>'+
+        '<button class="promo-btn" data-del="'+p.id+'">🗑️</button></div></div>';
+    }).join('');
+
+    c.querySelectorAll('[data-edit]').forEach(function(b){
+      b.addEventListener('click',function(){ editPromo(this.getAttribute('data-edit')); });
+    });
+    c.querySelectorAll('[data-del]').forEach(function(b){
+      b.addEventListener('click',function(){ deletePromo(this.getAttribute('data-del')); });
+    });
+  }
+
+  // ADD PROMO
+  $('btnAddPromo').addEventListener('click', function(){
+    $('modalPromoTitle').textContent='Nova Promoção';
+    $('promoEditId').value=''; $('promoNome').value=''; $('promoCategoria').value='';
+    $('promoPrecoOriginal').value=''; $('promoPrecoPromo').value='';
+    $('promoUnidade').value='un'; $('promoDataFim').value=''; $('promoDescricao').value='';
+    $('btnSavePromo').textContent='Publicar Promoção';
+    hideAlert('alertPromo'); openModal('modalPromo');
+  });
+
+  function editPromo(id) {
+    var p = promocoes.find(function(x){return x.id===id;});
+    if(!p)return;
+    $('modalPromoTitle').textContent='Editar Promoção';
+    $('promoEditId').value=p.id; $('promoNome').value=p.produto_nome;
+    $('promoCategoria').value=p.categoria_produto_id||'';
+    $('promoPrecoOriginal').value=p.preco_original||'';
+    $('promoPrecoPromo').value=p.preco_promocional;
+    $('promoUnidade').value=p.unidade||'un'; $('promoDataFim').value=p.data_fim||'';
+    $('promoDescricao').value=p.descricao||'';
+    $('btnSavePromo').textContent='Salvar Alterações';
+    hideAlert('alertPromo'); openModal('modalPromo');
+  }
+
+  // SAVE PROMO
+  $('btnSavePromo').addEventListener('click', async function(){
+    var nome=$('promoNome').value.trim(), cat=$('promoCategoria').value,
+        po=$('promoPrecoOriginal').value, pp=$('promoPrecoPromo').value,
+        un=$('promoUnidade').value, df=$('promoDataFim').value,
+        desc=$('promoDescricao').value.trim(), eid=$('promoEditId').value;
+    if(!nome||!pp){ showAlert('alertPromo','Preencha nome e preço promo.','error'); return; }
+
+    this.disabled=true; this.innerHTML='<span class="loading-spinner"></span> Salvando...';
+    var d = {
+      produto_nome:nome, categoria_produto_id:cat||null,
+      preco_original:po?parseFloat(po):null, preco_promocional:parseFloat(pp),
+      unidade:un, data_fim:df||null, descricao:desc||null,
+      loja_id:currentLoja.id, origem:'painel', ativo:true
+    };
+    var r = eid ? await sb.from('promocoes').update(d).eq('id',eid) : await sb.from('promocoes').insert(d);
+    this.disabled=false; this.textContent=eid?'Salvar Alterações':'Publicar Promoção';
+    if(r.error){ showAlert('alertPromo','Erro: '+r.error.message,'error'); return; }
+    closeModalFn('modalPromo'); await loadPromocoes();
+  });
+
+  async function deletePromo(id) {
+    if(!confirm('Excluir esta promoção?'))return;
+    await sb.from('promocoes').update({ativo:false}).eq('id',id);
+    await loadPromocoes();
+  }
+
+  // EDIT LOJA
+  $('btnSetup').addEventListener('click', openEditLoja);
+  function openEditLoja(){
+    $('lojaNome').value=currentLoja.nome||''; $('lojaEndereco').value=currentLoja.endereco||'';
+    $('lojaBairro').value=currentLoja.bairro||''; $('lojaWhatsapp').value=currentLoja.whatsapp||'';
+    $('lojaTelefone').value=currentLoja.telefone||''; $('lojaInstagram').value=currentLoja.instagram||'';
+    hideAlert('alertLoja'); openModal('modalLoja');
+  }
+
+  $('btnSaveLoja').addEventListener('click', async function(){
+    var d = {
+      nome:$('lojaNome').value.trim(), endereco:$('lojaEndereco').value.trim(),
+      bairro:$('lojaBairro').value.trim(), whatsapp:$('lojaWhatsapp').value.trim(),
+      telefone:$('lojaTelefone').value.trim(), instagram:$('lojaInstagram').value.trim()
+    };
+    if(!d.nome){ showAlert('alertLoja','Nome obrigatório.','error'); return; }
+    var r = await sb.from('lojas').update(d).eq('id',currentLoja.id);
+    if(r.error){ showAlert('alertLoja','Erro: '+r.error.message,'error'); return; }
+    Object.assign(currentLoja,d);
+    $('topbarLoja').textContent=currentLoja.nome;
+    if(currentLoja.endereco&&currentLoja.bairro) $('setupBanner').classList.add('hidden');
+    closeModalFn('modalLoja');
+  });
+
+  // CLOSE MODALS
+  $('closePromo').addEventListener('click', function(){ closeModalFn('modalPromo'); });
+  $('closeLoja').addEventListener('click', function(){ closeModalFn('modalLoja'); });
+  document.querySelectorAll('.modal-overlay').forEach(function(o){
+    o.addEventListener('click', function(e){ if(e.target===o) o.classList.remove('active'); });
+  });
+
+  // INIT
+  async function init() {
+    var cl = await sb.from('categorias_loja').select('*').order('nome');
+    (cl.data||[]).forEach(function(c){
+      var o=document.createElement('option'); o.value=c.id; o.textContent=c.icone+' '+c.nome;
+      $('regCategoria').appendChild(o);
+    });
+    var cp = await sb.from('categorias_produto').select('*').order('nome');
+    (cp.data||[]).forEach(function(c){
+      var o=document.createElement('option'); o.value=c.id; o.textContent=c.icone+' '+c.nome;
+      $('promoCategoria').appendChild(o);
+    });
+
+    var sess = await sb.auth.getSession();
+    if(sess.data.session){ currentUser=sess.data.session.user; await loadDashboard(); }
+
+    sb.auth.onAuthStateChange(async function(ev,sess){
+      if(ev==='SIGNED_IN'&&sess){ currentUser=sess.user; await loadDashboard(); }
+      else if(ev==='SIGNED_OUT'){ currentUser=null; currentLoja=null; $('authScreen').style.display='flex'; $('dashboardScreen').style.display='none'; }
+    });
+  }
+  init();
+})();
+</script>
+</body>
+</html>
