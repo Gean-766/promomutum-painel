@@ -204,7 +204,7 @@
     <div class="auth-logo">🏷️ PromoMutum</div>
     <div class="auth-subtitle">Painel do Lojista — Nova Mutum</div>
     
-    <div id="authTabs" class="auth-tabs">
+    <div style="display:none;" id="auth-tabs-hidden">
       <button class="auth-tab active" id="tabLogin">Entrar</button>
       <button class="auth-tab" id="tabRegister">Criar Conta</button>
     </div>
@@ -249,26 +249,10 @@
       <button class="btn btn-primary" id="btnSalvarSenha">Salvar nova senha</button>
     </div>
 
-    <div id="registerForm" class="hidden">
+    <div id="registerForm" class="hidden" style="display:none!important;">
       <div class="form-group">
         <label class="form-label">Nome da Loja</label>
-        <input type="text" id="regNome" class="form-input" placeholder="Ex: Mercado Araras">
-      </div>
-      <div class="form-group">
-        <label class="form-label">E-mail</label>
-        <input type="email" id="regEmail" class="form-input" placeholder="seu@email.com">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Senha</label>
-        <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 6 caracteres">
-      </div>
-      <div class="form-group">
-        <label class="form-label">WhatsApp da Loja</label>
-        <input type="text" id="regWhatsapp" class="form-input" placeholder="(65) 99999-9999">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Tipo de Comércio</label>
-        <select id="regCategoria" class="form-select"><option value="">Selecione...</option></select>
+        <input type="text" id="regNome" class="form-input">
       </div>
       <button class="btn btn-primary" id="btnRegister">Criar Conta</button>
     </div>
@@ -369,19 +353,11 @@
   function formatDate(d) { if(!d)return''; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
   function esc(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
-  // TABS
+  // TABS (LÓGICA MANTIDA MAS INTERFACE ESCONDIDA)
   $('tabLogin').addEventListener('click', function() {
     $('tabLogin').classList.add('active'); $('tabRegister').classList.remove('active');
     $('loginForm').classList.remove('hidden'); $('registerForm').classList.add('hidden');
     $('recuperacaoForm').classList.add('hidden'); $('novaSenhaForm').classList.add('hidden');
-    $('authTabs').classList.remove('hidden');
-    hideAlert('alertAuth');
-  });
-  $('tabRegister').addEventListener('click', function() {
-    $('tabRegister').classList.add('active'); $('tabLogin').classList.remove('active');
-    $('registerForm').classList.remove('hidden'); $('loginForm').classList.add('hidden');
-    $('recuperacaoForm').classList.add('hidden'); $('novaSenhaForm').classList.add('hidden');
-    $('authTabs').classList.remove('hidden');
     hideAlert('alertAuth');
   });
 
@@ -389,9 +365,7 @@
   $('btnLogin').addEventListener('click', async function() {
     var email=$('loginEmail').value.trim(), pw=$('loginPassword').value;
     if(!email||!pw){ showAlert('alertAuth','Preencha e-mail e senha.','error'); return; }
-    
-    // Verificação simples de formato de e-mail para evitar 400 Bad Request
-    if(!email.includes('@')){ showAlert('alertAuth','Use um e-mail válido (ex: seu@email.com).','error'); return; }
+    if(!email.includes('@')){ showAlert('alertAuth','Use um e-mail válido.','error'); return; }
 
     this.disabled=true; this.innerHTML='<span class="loading-spinner"></span> Entrando...';
     var r = await sb.auth.signInWithPassword({email:email,password:pw});
@@ -401,29 +375,6 @@
 
   $('loginPassword').addEventListener('keydown', function(e) {
     if(e.key==='Enter') $('btnLogin').click();
-  });
-
-  // REGISTER
-  $('btnRegister').addEventListener('click', async function() {
-    var nome=$('regNome').value.trim(), email=$('regEmail').value.trim(),
-        pw=$('regPassword').value, wpp=$('regWhatsapp').value.trim(),
-        cat=$('regCategoria').value;
-    if(!nome||!email||!pw){ showAlert('alertAuth','Preencha nome, e-mail e senha.','error'); return; }
-    if(pw.length<6){ showAlert('alertAuth','Senha precisa ter 6+ caracteres.','error'); return; }
-
-    this.disabled=true; this.innerHTML='<span class="loading-spinner"></span> Criando conta...';
-    var ar = await sb.auth.signUp({email:email,password:pw});
-    if(ar.error){ this.disabled=false; this.textContent='Criar Conta'; showAlert('alertAuth','Erro: '+ar.error.message,'error'); return; }
-
-    var lr = await sb.from('lojas').insert({
-      nome:nome, email:email, whatsapp:wpp, categoria_loja_id:cat||null,
-      user_id:ar.data.user.id, plano_ativo:true,
-      data_inicio_plano:new Date().toISOString().split('T')[0],
-      data_vencimento_plano:new Date(Date.now()+30*86400000).toISOString().split('T')[0]
-    });
-    this.disabled=false; this.textContent='Criar Conta';
-    if(lr.error){ showAlert('alertAuth','Conta criada, erro na loja: '+lr.error.message,'error'); return; }
-    showAlert('alertAuth','Conta criada com sucesso! Entrando...','success');
   });
 
   // LOGOUT
@@ -570,7 +521,6 @@
   $('linkEsqueceu').addEventListener('click', function(e) {
     e.preventDefault();
     $('loginForm').classList.add('hidden');
-    $('authTabs').classList.add('hidden');
     $('recuperacaoForm').classList.remove('hidden');
     hideAlert('alertAuth');
   });
@@ -578,7 +528,6 @@
   $('linkVoltarLogin').addEventListener('click', function(e) {
     e.preventDefault();
     $('recuperacaoForm').classList.add('hidden');
-    $('authTabs').classList.remove('hidden');
     $('loginForm').classList.remove('hidden');
     hideAlert('alertAuth');
   });
@@ -616,7 +565,6 @@
       showAlert('alertAuth', '✅ Senha alterada! Faça login.', 'success');
       setTimeout(function() {
         $('novaSenhaForm').classList.add('hidden');
-        $('authTabs').classList.remove('hidden');
         $('loginForm').classList.remove('hidden');
         hideAlert('alertAuth');
       }, 2000);
@@ -648,7 +596,6 @@
         window.location.hash = '';
         if (type === 'recovery') {
           $('loginForm').classList.add('hidden');
-          $('authTabs').classList.add('hidden');
           $('recuperacaoForm').classList.add('hidden');
           $('novaSenhaForm').classList.remove('hidden');
           return;
