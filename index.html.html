@@ -208,6 +208,7 @@
       <button class="auth-tab" id="tabRegister">Criar Conta</button>
     </div>
     <div id="alertAuth" class="alert"></div>
+    
     <div id="loginForm">
       <div class="form-group">
         <label class="form-label">E-mail</label>
@@ -218,7 +219,34 @@
         <input type="password" id="loginPassword" class="form-input" placeholder="Sua senha">
       </div>
       <button class="btn btn-primary" id="btnLogin">Entrar</button>
+      <div style="text-align:center;margin-top:12px;">
+        <a href="#" id="linkEsqueceu" style="font-size:13px;color:var(--accent);text-decoration:none;">Esqueceu a senha?</a>
+      </div>
     </div>
+
+    <div id="recuperacaoForm" class="hidden">
+      <div class="form-group">
+        <label class="form-label">Seu e-mail</label>
+        <input type="email" id="recEmail" class="form-input" placeholder="seu@email.com">
+      </div>
+      <button class="btn btn-primary" id="btnEnviarRec">Enviar link de recuperação</button>
+      <div style="text-align:center;margin-top:12px;">
+        <a href="#" id="linkVoltarLogin" style="font-size:13px;color:var(--accent);text-decoration:none;">← Voltar ao login</a>
+      </div>
+    </div>
+
+    <div id="novaSenhaForm" class="hidden">
+      <div class="form-group">
+        <label class="form-label">Nova senha</label>
+        <input type="password" id="novaSenha1" class="form-input" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirme a senha</label>
+        <input type="password" id="novaSenha2" class="form-input" placeholder="Repita a senha">
+      </div>
+      <button class="btn btn-primary" id="btnSalvarSenha">Salvar nova senha</button>
+    </div>
+
     <div id="registerForm" class="hidden">
       <div class="form-group">
         <label class="form-label">Nome da Loja</label>
@@ -343,11 +371,13 @@
   $('tabLogin').addEventListener('click', function() {
     $('tabLogin').classList.add('active'); $('tabRegister').classList.remove('active');
     $('loginForm').classList.remove('hidden'); $('registerForm').classList.add('hidden');
+    $('recuperacaoForm').classList.add('hidden'); $('novaSenhaForm').classList.add('hidden');
     hideAlert('alertAuth');
   });
   $('tabRegister').addEventListener('click', function() {
     $('tabRegister').classList.add('active'); $('tabLogin').classList.remove('active');
     $('registerForm').classList.remove('hidden'); $('loginForm').classList.add('hidden');
+    $('recuperacaoForm').classList.add('hidden'); $('novaSenhaForm').classList.add('hidden');
     hideAlert('alertAuth');
   });
 
@@ -528,6 +558,60 @@
     o.addEventListener('click', function(e){ if(e.target===o) o.classList.remove('active'); });
   });
 
+  // RECUPERAÇÃO DE SENHA
+  $('linkEsqueceu').addEventListener('click', function(e) {
+    e.preventDefault();
+    $('loginForm').classList.add('hidden');
+    $('recuperacaoForm').classList.remove('hidden');
+    hideAlert('alertAuth');
+  });
+
+  $('linkVoltarLogin').addEventListener('click', function(e) {
+    e.preventDefault();
+    $('recuperacaoForm').classList.add('hidden');
+    $('loginForm').classList.remove('hidden');
+    hideAlert('alertAuth');
+  });
+
+  $('btnEnviarRec').addEventListener('click', async function() {
+    var email = $('recEmail').value.trim();
+    if (!email) { showAlert('alertAuth', 'Digite seu e-mail.', 'error'); return; }
+    this.disabled = true;
+    this.innerHTML = '<span class="loading-spinner"></span> Enviando...';
+    var r = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://promomutum-painel.vercel.app'
+    });
+    this.disabled = false;
+    this.textContent = 'Enviar link de recuperação';
+    if (r.error) {
+      showAlert('alertAuth', 'Erro ao enviar. Tente novamente.', 'error');
+    } else {
+      showAlert('alertAuth', '✅ Link enviado! Verifique seu e-mail.', 'success');
+    }
+  });
+
+  $('btnSalvarSenha').addEventListener('click', async function() {
+    var s1 = $('novaSenha1').value;
+    var s2 = $('novaSenha2').value;
+    if (!s1 || s1.length < 6) { showAlert('alertAuth', 'Senha precisa ter pelo menos 6 caracteres.', 'error'); return; }
+    if (s1 !== s2) { showAlert('alertAuth', 'As senhas não coincidem!', 'error'); return; }
+    this.disabled = true;
+    this.innerHTML = '<span class="loading-spinner"></span> Salvando...';
+    var r = await sb.auth.updateUser({ password: s1 });
+    this.disabled = false;
+    this.textContent = 'Salvar nova senha';
+    if (r.error) {
+      showAlert('alertAuth', 'Erro: ' + r.error.message, 'error');
+    } else {
+      showAlert('alertAuth', '✅ Senha alterada! Faça login.', 'success');
+      setTimeout(function() {
+        $('novaSenhaForm').classList.add('hidden');
+        $('loginForm').classList.remove('hidden');
+        hideAlert('alertAuth');
+      }, 2000);
+    }
+  });
+
   // INIT
   async function init() {
     var cl = await sb.from('categorias_loja').select('*').order('nome');
@@ -540,6 +624,25 @@
       var o=document.createElement('option'); o.value=c.id; o.textContent=c.icone+' '+c.nome;
       $('promoCategoria').appendChild(o);
     });
+
+    // Captura token de recuperação na URL
+    var hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      var params = new URLSearchParams(hash.substring(1));
+      var accessToken = params.get('access_token');
+      var refreshToken = params.get('refresh_token');
+      var type = params.get('type');
+      if (accessToken) {
+        await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        window.location.hash = '';
+        if (type === 'recovery') {
+          $('loginForm').classList.add('hidden');
+          $('recuperacaoForm').classList.add('hidden');
+          $('novaSenhaForm').classList.remove('hidden');
+          return;
+        }
+      }
+    }
 
     var sess = await sb.auth.getSession();
     if(sess.data.session){ currentUser=sess.data.session.user; await loadDashboard(); }
