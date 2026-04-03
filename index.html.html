@@ -347,13 +347,12 @@
 
   function $(id) { return document.getElementById(id); }
   function showAlert(id, msg, type) { var e=$(id); e.textContent=msg; e.className='alert alert-'+type; e.style.display='block'; }
-  function hideAlert(id) { $(id).style.display='none'; }
+  function hideAlert(id) { if($(id)) $(id).style.display='none'; }
   function openModal(id) { $(id).classList.add('active'); }
   function closeModalFn(id) { $(id).classList.remove('active'); }
   function formatDate(d) { if(!d)return''; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
   function esc(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
-  // TABS (LÓGICA MANTIDA MAS INTERFACE ESCONDIDA)
   $('tabLogin').addEventListener('click', function() {
     $('tabLogin').classList.add('active'); $('tabRegister').classList.remove('active');
     $('loginForm').classList.remove('hidden'); $('registerForm').classList.add('hidden');
@@ -361,7 +360,6 @@
     hideAlert('alertAuth');
   });
 
-  // LOGIN
   $('btnLogin').addEventListener('click', async function() {
     var email=$('loginEmail').value.trim(), pw=$('loginPassword').value;
     if(!email||!pw){ showAlert('alertAuth','Preencha e-mail e senha.','error'); return; }
@@ -377,13 +375,19 @@
     if(e.key==='Enter') $('btnLogin').click();
   });
 
-  // LOGOUT
-  $('btnLogout').addEventListener('click', function() { sb.auth.signOut(); });
+  $('btnLogout').addEventListener('click', async function() { 
+    await sb.auth.signOut(); 
+    location.reload();
+  });
 
-  // DASHBOARD
   async function loadDashboard() {
+    console.log("Iniciando carregamento do Dashboard...");
     var r = await sb.from('lojas').select('*, categorias_loja(nome, icone)').eq('user_id', currentUser.id);
-    if(!r.data||!r.data.length){ showAlert('alertAuth','Loja não encontrada.','error'); return; }
+    if(!r.data||!r.data.length){ 
+        console.error("Loja não encontrada para este user_id!");
+        showAlert('alertAuth','Erro: Sua loja não foi vinculada ao seu usuário.','error'); 
+        return; 
+    }
     currentLoja = r.data[0];
     $('authScreen').style.display='none';
     $('dashboardScreen').style.display='block';
@@ -435,7 +439,6 @@
     });
   }
 
-  // ADD PROMO
   $('btnAddPromo').addEventListener('click', function(){
     $('modalPromoTitle').textContent='Nova Promoção';
     $('promoEditId').value=''; $('promoNome').value=''; $('promoCategoria').value='';
@@ -459,7 +462,6 @@
     hideAlert('alertPromo'); openModal('modalPromo');
   }
 
-  // SAVE PROMO
   $('btnSavePromo').addEventListener('click', async function(){
     var nome=$('promoNome').value.trim(), cat=$('promoCategoria').value,
         po=$('promoPrecoOriginal').value, pp=$('promoPrecoPromo').value,
@@ -486,7 +488,6 @@
     await loadPromocoes();
   }
 
-  // EDIT LOJA
   $('btnSetup').addEventListener('click', openEditLoja);
   function openEditLoja(){
     $('lojaNome').value=currentLoja.nome||''; $('lojaEndereco').value=currentLoja.endereco||'';
@@ -510,14 +511,12 @@
     closeModalFn('modalLoja');
   });
 
-  // CLOSE MODALS
   $('closePromo').addEventListener('click', function(){ closeModalFn('modalPromo'); });
   $('closeLoja').addEventListener('click', function(){ closeModalFn('modalLoja'); });
   document.querySelectorAll('.modal-overlay').forEach(function(o){
     o.addEventListener('click', function(e){ if(e.target===o) o.classList.remove('active'); });
   });
 
-  // RECUPERAÇÃO DE SENHA
   $('linkEsqueceu').addEventListener('click', function(e) {
     e.preventDefault();
     $('loginForm').classList.add('hidden');
@@ -571,12 +570,12 @@
     }
   });
 
-  // INIT
   async function init() {
+    // 1. Carrega categorias
     var cl = await sb.from('categorias_loja').select('*').order('nome');
     (cl.data||[]).forEach(function(c){
       var o=document.createElement('option'); o.value=c.id; o.textContent=c.icone+' '+c.nome;
-      $('regCategoria').appendChild(o);
+      if($('regCategoria')) $('regCategoria').appendChild(o);
     });
     var cp = await sb.from('categorias_produto').select('*').order('nome');
     (cp.data||[]).forEach(function(c){
@@ -584,7 +583,7 @@
       $('promoCategoria').appendChild(o);
     });
 
-    // Captura token de recuperação na URL
+    // 2. Captura token de recuperação na URL (SE HOUVER)
     var hash = window.location.hash;
     if (hash && hash.includes('access_token')) {
       var params = new URLSearchParams(hash.substring(1));
@@ -596,19 +595,33 @@
         window.location.hash = '';
         if (type === 'recovery') {
           $('loginForm').classList.add('hidden');
+          if($('authTabs')) $('authTabs').classList.add('hidden');
           $('recuperacaoForm').classList.add('hidden');
           $('novaSenhaForm').classList.remove('hidden');
-          return;
         }
       }
     }
 
+    // 3. Verifica sessão atual
     var sess = await sb.auth.getSession();
-    if(sess.data.session){ currentUser=sess.data.session.user; await loadDashboard(); }
+    if(sess.data.session){ 
+        currentUser=sess.data.session.user; 
+        await loadDashboard(); 
+    }
 
+    // 4. Listener de mudanças de estado
     sb.auth.onAuthStateChange(async function(ev,sess){
-      if(ev==='SIGNED_IN'&&sess){ currentUser=sess.user; await loadDashboard(); }
-      else if(ev==='SIGNED_OUT'){ currentUser=null; currentLoja=null; $('authScreen').style.display='flex'; $('dashboardScreen').style.display='none'; }
+      console.log("Evento Auth:", ev);
+      if((ev==='SIGNED_IN' || ev==='USER_UPDATED') && sess){ 
+          currentUser=sess.user; 
+          await loadDashboard(); 
+      }
+      else if(ev==='SIGNED_OUT'){ 
+          currentUser=null; 
+          currentLoja=null; 
+          $('authScreen').style.display='flex'; 
+          $('dashboardScreen').style.display='none'; 
+      }
     });
   }
   init();
