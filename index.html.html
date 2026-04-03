@@ -203,10 +203,12 @@
   <div class="auth-card">
     <div class="auth-logo">🏷️ PromoMutum</div>
     <div class="auth-subtitle">Painel do Lojista — Nova Mutum</div>
-    <div class="auth-tabs">
+    
+    <div id="authTabs" class="auth-tabs">
       <button class="auth-tab active" id="tabLogin">Entrar</button>
       <button class="auth-tab" id="tabRegister">Criar Conta</button>
     </div>
+
     <div id="alertAuth" class="alert"></div>
     
     <div id="loginForm">
@@ -372,12 +374,14 @@
     $('tabLogin').classList.add('active'); $('tabRegister').classList.remove('active');
     $('loginForm').classList.remove('hidden'); $('registerForm').classList.add('hidden');
     $('recuperacaoForm').classList.add('hidden'); $('novaSenhaForm').classList.add('hidden');
+    $('authTabs').classList.remove('hidden');
     hideAlert('alertAuth');
   });
   $('tabRegister').addEventListener('click', function() {
     $('tabRegister').classList.add('active'); $('tabLogin').classList.remove('active');
     $('registerForm').classList.remove('hidden'); $('loginForm').classList.add('hidden');
     $('recuperacaoForm').classList.add('hidden'); $('novaSenhaForm').classList.add('hidden');
+    $('authTabs').classList.remove('hidden');
     hideAlert('alertAuth');
   });
 
@@ -385,6 +389,10 @@
   $('btnLogin').addEventListener('click', async function() {
     var email=$('loginEmail').value.trim(), pw=$('loginPassword').value;
     if(!email||!pw){ showAlert('alertAuth','Preencha e-mail e senha.','error'); return; }
+    
+    // Verificação simples de formato de e-mail para evitar 400 Bad Request
+    if(!email.includes('@')){ showAlert('alertAuth','Use um e-mail válido (ex: seu@email.com).','error'); return; }
+
     this.disabled=true; this.innerHTML='<span class="loading-spinner"></span> Entrando...';
     var r = await sb.auth.signInWithPassword({email:email,password:pw});
     this.disabled=false; this.textContent='Entrar';
@@ -562,6 +570,7 @@
   $('linkEsqueceu').addEventListener('click', function(e) {
     e.preventDefault();
     $('loginForm').classList.add('hidden');
+    $('authTabs').classList.add('hidden');
     $('recuperacaoForm').classList.remove('hidden');
     hideAlert('alertAuth');
   });
@@ -569,17 +578,18 @@
   $('linkVoltarLogin').addEventListener('click', function(e) {
     e.preventDefault();
     $('recuperacaoForm').classList.add('hidden');
+    $('authTabs').classList.remove('hidden');
     $('loginForm').classList.remove('hidden');
     hideAlert('alertAuth');
   });
 
   $('btnEnviarRec').addEventListener('click', async function() {
     var email = $('recEmail').value.trim();
-    if (!email) { showAlert('alertAuth', 'Digite seu e-mail.', 'error'); return; }
+    if (!email || !email.includes('@')) { showAlert('alertAuth', 'Digite um e-mail válido.', 'error'); return; }
     this.disabled = true;
     this.innerHTML = '<span class="loading-spinner"></span> Enviando...';
     var r = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://promomutum-painel.vercel.app'
+      redirectTo: window.location.origin
     });
     this.disabled = false;
     this.textContent = 'Enviar link de recuperação';
@@ -606,6 +616,7 @@
       showAlert('alertAuth', '✅ Senha alterada! Faça login.', 'success');
       setTimeout(function() {
         $('novaSenhaForm').classList.add('hidden');
+        $('authTabs').classList.remove('hidden');
         $('loginForm').classList.remove('hidden');
         hideAlert('alertAuth');
       }, 2000);
@@ -637,6 +648,7 @@
         window.location.hash = '';
         if (type === 'recovery') {
           $('loginForm').classList.add('hidden');
+          $('authTabs').classList.add('hidden');
           $('recuperacaoForm').classList.add('hidden');
           $('novaSenhaForm').classList.remove('hidden');
           return;
